@@ -1,0 +1,315 @@
+import { Module } from "module";
+
+enum ModuleInfoDescriptor {
+    Type = 0x01,
+    Name,
+    Info,
+    Module_link,
+    CRC32,
+    DownloadTime = 0x07,
+    CashPrioriy = 0x71,
+    Expire = 0xc0,
+    ActivationTime,
+    CompressionType,
+    Control,
+    ProviderPrivate,
+    StoreRoot,
+    SubDirectory,
+    Title,
+    DataEncoding,
+    TsWithTimestamp,
+    RootCert,
+    Encrypt,
+    ACG,
+}
+
+enum PrivateDataDescriptor {
+    Info = 0x03,
+    DownloadTime = 0x07,
+    Expire = 0xc0,
+    ActivationTime,
+    ProviderPrivate,
+    StoreRoot,
+    SubDirectory,
+    Title,
+    RootCert,
+    Encrypt,
+    ACG,
+}
+
+class dsmccParser {
+    data: Uint8Array;
+    moduleMap = new Map();
+    moduleByteMap = new Map();
+    privateData = new Uint8Array();
+
+    constructor(data: Uint8Array) {
+        this.data = data;
+    }
+
+    ProcessDsmccAdaptationHeader(
+        data: Uint8Array,
+        adaptationLength: number
+    ): void {
+        let adaptationType = data[0];
+        for (let i = 0; i < adaptationLength - 1; i++) {
+            console.log(data[1 + i]);
+        }
+    }
+
+    ProcessDsmccMessageHeader(data: Uint8Array): number {
+        let protocolDiscriminator = data[0];
+        let dsmccType = data[1];
+        let messageId = (data[2] << 8) | data[3];
+        let transaction_id =
+            (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7]; // 32 Bits
+        let reserved = data[8];
+        let adaptationLength = data[9];
+        let messageLength = (data[10] << 8) | data[11];
+
+        if (adaptationLength > 0) {
+            this.ProcessDsmccAdaptationHeader(data.subarray(12), adaptationLength);
+        }
+
+        return 12 + adaptationLength;
+    }
+
+    ProcessDescriptor(data: Uint8Array): void {
+        let descriptor_tag = data[0];
+        let descriptor_length = data[1];
+
+        switch (descriptor_tag) {
+            case ModuleInfoDescriptor.Type: {
+                let text_char = new Uint8Array(data, 2, descriptor_length);
+
+                break;
+            }
+            case ModuleInfoDescriptor.Info: {
+                let ISO_639_language_code = (data[2] << 16) | (data[3] << 8) | data[4];
+                let text_char = new Uint8Array(data, 4, descriptor_length);
+                break;
+            }
+            case ModuleInfoDescriptor.Name: {
+                let text_char = new Uint8Array(data, 2, descriptor_length);
+
+                break;
+            }
+            case ModuleInfoDescriptor.Module_link: {
+                let position = data[2];
+                let moduleId = (data[3] << 8) | data[4];
+                break;
+            }
+            case ModuleInfoDescriptor.CRC32: {
+                let CRC_32 =
+                    (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
+                break;
+            }
+            case ModuleInfoDescriptor.DownloadTime: {
+                let est_download_time = (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
+                break;
+            }
+            case ModuleInfoDescriptor.Expire: {
+                let time_mode = data[2];
+
+                switch (time_mode) {
+                    case 0x01:
+                        let MJD_JST_time = (data[3] << 32) | (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                        break;
+                    case 0x04:
+                        let reserved_future_use = data[3];
+                        let passed_seconds = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                    default:
+                        break;
+                }
+            }
+            case ModuleInfoDescriptor.ActivationTime: {
+                let time_mode = data[2];
+                switch (time_mode) {
+                    case 0x01:
+                    case 0x05:
+                        let MJD_JST_time = (data[3] << 32) | (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                        break;
+                    case 0x02: {
+                        let reserved_future_use = ((data[3] >> 1) & 0b1111111);
+                        let NPT_time = ((data[3] & 0b1) << 32) | (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                        break;
+                    }
+                    case 0x03:
+                        let reserved_future_use = ((data[3] >> 4 & 0b1111));
+                        let eventRelativeTime = ((data[3] & 0b1111) << 32) | (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                        break;
+
+
+
+
+                    default:
+                        break;
+                }
+            }
+
+            case ModuleInfoDescriptor.CompressionType: {
+                let compression_type = data[2];
+                let original_size = (data[3] << 24) | (data[4] << 16) | (data[5] << 18) | data[6];
+                break;
+            }
+
+            case ModuleInfoDescriptor.Control: {
+                let control_data_byte = new Uint8Array(data, 2, descriptor_length);
+                break;
+            }
+
+            case ModuleInfoDescriptor.ProviderPrivate: {
+                let private_scope_type = data[2];
+                let scope_identifier = (data[3] << 24) | (data[4] << 16) | (data[5] << 18) | data[6];
+                let private_byte = new Uint8Array(data, 7, descriptor_length);
+                break;
+            }
+
+            case ModuleInfoDescriptor.StoreRoot: {
+                let update_type = data[2] & 0b1;
+                let reserved = (data[2] >> 1) & 0b1111111;
+                let store_root_path = new Uint8Array(data, 3, descriptor_length);
+                break;
+            }
+
+            case ModuleInfoDescriptor.SubDirectory: {
+                let subdirectory_path = new Uint8Array(data, 3, descriptor_length);
+                break;
+            }
+
+            case ModuleInfoDescriptor.Title: {
+                let ISO_639_language_code = (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
+                break;
+            }
+
+            case ModuleInfoDescriptor.DataEncoding: {
+                let data_compoent_id = (data[2] << 8) | data[3];
+                let additional_data_encoding_info = new Uint8Array(data, 4, descriptor_length);
+                break;
+            }
+
+            case ModuleInfoDescriptor.RootCert: {
+                let root_certificate_type = data[2] & 0b1;
+                let reserved = (data[2] >> 1) & 0b1111111;
+
+                if (root_certificate_type == 0) {
+
+                }
+
+            }
+
+            default:
+                break;
+        }
+    }
+
+    ProcessDii(buffer: Uint8Array): number {
+        let dsmccMessageHeaderOffset = this.ProcessDsmccMessageHeader(buffer);
+        let data = new Uint8Array(buffer, dsmccMessageHeaderOffset);
+        let downloadId =
+            (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+        let data_event_id = (downloadId >> 28) & 0b1111;
+        let blockSize = (data[4] << 8) | data[5];
+        let windowSize = data[6];
+        let ackPeriod = data[7];
+        let tCDownloadWindow =
+            (data[8] << 24) | (data[9] << 16) | (data[10] << 8) | data[11];
+        let tCDownloadScenario =
+            (data[12] << 24) | (data[13] << 16) | (data[14] << 8) | data[15];
+        let descriptorCount = (data[16] >> 4) & 0b1111; // empty compatibilityDescriptor()
+        let numberOfModules =
+            ((data[16] & 0b1111) << 12) |
+            (data[17] << 4) |
+            ((data[18] >> 4) & 0b1111);
+
+        for (let i = 0; i < numberOfModules; i++) {
+            var moduleObj = {
+                moduleId:
+                    ((data[18 + i] & 0b1111) << 12) |
+                    (data[19 + i] << 4) |
+                    ((data[20 + i] >> 4) & 0b1111),
+                moduleSize:
+                    ((data[20 + i] & 0b1111) << 28) |
+                    (data[21 + i] << 20) |
+                    (data[22 + i] << 12) |
+                    (data[23 + i] << 4) |
+                    ((data[24 + i] >> 4) & 0b1111),
+                moduleVersion:
+                    ((data[24 + i] & 0b1111) << 4) | ((data[25 + i] >> 4) & 0b1111),
+                moduleInfoLength:
+                    ((data[25 + i] & 0b1111) << 4) | ((data[26 + i] >> 4) & 0b1111),
+            };
+            var moduleInfoByte = new Uint8Array(moduleObj.moduleInfoLength);
+            for (let j = 0; j < moduleObj.moduleInfoLength; j++) {
+                moduleInfoByte[j] =
+                    ((data[26 + j] & 0b1111) << 4) | ((data[27 + j] >> 4) & 0b1111);
+            }
+
+            this.moduleMap.set(moduleObj.moduleId, moduleObj);
+            this.moduleByteMap.set(moduleObj.moduleId, moduleInfoByte);
+        }
+
+        let privateDataLength =
+            ((data[27 + numberOfModules] & 0b1111) << 12) |
+            (data[28 + numberOfModules] << 4) |
+            ((data[29 + numberOfModules] >> 4) & 0b1111);
+
+        let privateData = new Uint8Array(privateDataLength);
+
+        for (let i = 0; i < privateDataLength; i++) {
+            privateData[i] =
+                (data[29 + numberOfModules + i] & 0b1111) |
+                ((data[30 + numberOfModules + i] >> 4) & 0b1111);
+        }
+
+        return 30 + numberOfModules + privateDataLength; // offset
+    }
+
+    ProcessDsmccDownloadDataHeader(data: Uint8Array): number {
+        let protocolDiscriminator = data[0];
+        let dsmccType = data[1];
+        let messageId = (data[2] << 8) | data[3];
+        let downloadId = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+        let reserved = data[8];
+        let adaptationLength = data[9];
+        let messageLength = (data[10] << 8) | data[11];
+        if (adaptationLength > 0) {
+            this.ProcessDsmccAdaptationHeader(data.subarray(12), adaptationLength)
+        }
+
+        return 12 + adaptationLength;
+    }
+
+    ProcessDDB(data: Uint8Array): void {
+        let offset = this.ProcessDsmccDownloadDataHeader(data);
+        data = new Uint8Array(data, offset);
+        let moduleId = (data[0] << 8) | data[1];
+        let moduleVersion
+    }
+
+    ProcessDsmccSection(data: Uint8Array): void {
+        let table_id = data[0];
+        let section_syntax_indicator = (data[1] >> 7) & 0b1;
+        let private_indicator = (data[1] >> 6) & 0b1;
+        let reserved1 = (data[1] >> 5) & 0b11;
+        let dsmcc_section_length = (data[1] & (0b1111 << 8)) | data[2];
+        let table_id_extension = (data[3] << 8) | data[4];
+        let reserved2 = (data[5] >> 6) & 0b11;
+        let version_number = (data[5] >> 3) & 0b11111;
+        let current_next_indicator = (data[5] >> 7) & 0b1;
+        let section_number = data[6];
+        let last_section_number = data[7];
+
+        switch (table_id) {
+            case 0x3b:
+                this.ProcessDii(data.subarray(8));
+                break;
+            case 0x3c:
+                break;
+            case 0x3e:
+                break;
+            default:
+                break;
+        }
+    }
+}
