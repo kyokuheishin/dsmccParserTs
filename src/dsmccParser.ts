@@ -1,4 +1,5 @@
-import { Module } from "module";
+import { Module } from 'module';
+import { DlData } from './downloadData';
 
 enum ModuleInfoDescriptor {
     Type = 0x01,
@@ -57,7 +58,7 @@ class dsmccParser {
         }
     }
 
-    ProcessDsmccMessageHeader(data: Uint8Array): number {
+    ProcessDsmccMessageHeader(data: Uint8Array) {
         let protocolDiscriminator = data[0];
         let dsmccType = data[1];
         let messageId = (data[2] << 8) | data[3];
@@ -71,7 +72,15 @@ class dsmccParser {
             this.ProcessDsmccAdaptationHeader(data.subarray(12), adaptationLength);
         }
 
-        return 12 + adaptationLength;
+        let transaction_no = transaction_id & 0b111111111111111111111111111111;
+
+        return [
+            12 + adaptationLength,
+            transaction_id,
+            transaction_no,
+            adaptationLength,
+            messageLength,
+        ];
     }
 
     ProcessDescriptor(data: Uint8Array): void {
@@ -105,7 +114,8 @@ class dsmccParser {
                 break;
             }
             case ModuleInfoDescriptor.DownloadTime: {
-                let est_download_time = (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
+                let est_download_time =
+                    (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
                 break;
             }
             case ModuleInfoDescriptor.Expire: {
@@ -113,11 +123,17 @@ class dsmccParser {
 
                 switch (time_mode) {
                     case 0x01:
-                        let MJD_JST_time = (data[3] << 32) | (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                        let MJD_JST_time =
+                            (data[3] << 32) |
+                            (data[4] << 24) |
+                            (data[5] << 16) |
+                            (data[6] << 8) |
+                            data[7];
                         break;
                     case 0x04:
                         let reserved_future_use = data[3];
-                        let passed_seconds = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                        let passed_seconds =
+                            (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
                     default:
                         break;
                 }
@@ -127,20 +143,32 @@ class dsmccParser {
                 switch (time_mode) {
                     case 0x01:
                     case 0x05:
-                        let MJD_JST_time = (data[3] << 32) | (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                        let MJD_JST_time =
+                            (data[3] << 32) |
+                            (data[4] << 24) |
+                            (data[5] << 16) |
+                            (data[6] << 8) |
+                            data[7];
                         break;
                     case 0x02: {
-                        let reserved_future_use = ((data[3] >> 1) & 0b1111111);
-                        let NPT_time = ((data[3] & 0b1) << 32) | (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                        let reserved_future_use = (data[3] >> 1) & 0b1111111;
+                        let NPT_time =
+                            ((data[3] & 0b1) << 32) |
+                            (data[4] << 24) |
+                            (data[5] << 16) |
+                            (data[6] << 8) |
+                            data[7];
                         break;
                     }
                     case 0x03:
-                        let reserved_future_use = ((data[3] >> 4 & 0b1111));
-                        let eventRelativeTime = ((data[3] & 0b1111) << 32) | (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                        let reserved_future_use = (data[3] >> 4) & 0b1111;
+                        let eventRelativeTime =
+                            ((data[3] & 0b1111) << 32) |
+                            (data[4] << 24) |
+                            (data[5] << 16) |
+                            (data[6] << 8) |
+                            data[7];
                         break;
-
-
-
 
                     default:
                         break;
@@ -149,7 +177,8 @@ class dsmccParser {
 
             case ModuleInfoDescriptor.CompressionType: {
                 let compression_type = data[2];
-                let original_size = (data[3] << 24) | (data[4] << 16) | (data[5] << 18) | data[6];
+                let original_size =
+                    (data[3] << 24) | (data[4] << 16) | (data[5] << 18) | data[6];
                 break;
             }
 
@@ -160,7 +189,8 @@ class dsmccParser {
 
             case ModuleInfoDescriptor.ProviderPrivate: {
                 let private_scope_type = data[2];
-                let scope_identifier = (data[3] << 24) | (data[4] << 16) | (data[5] << 18) | data[6];
+                let scope_identifier =
+                    (data[3] << 24) | (data[4] << 16) | (data[5] << 18) | data[6];
                 let private_byte = new Uint8Array(data, 7, descriptor_length);
                 break;
             }
@@ -178,13 +208,18 @@ class dsmccParser {
             }
 
             case ModuleInfoDescriptor.Title: {
-                let ISO_639_language_code = (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
+                let ISO_639_language_code =
+                    (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
                 break;
             }
 
             case ModuleInfoDescriptor.DataEncoding: {
                 let data_compoent_id = (data[2] << 8) | data[3];
-                let additional_data_encoding_info = new Uint8Array(data, 4, descriptor_length);
+                let additional_data_encoding_info = new Uint8Array(
+                    data,
+                    4,
+                    descriptor_length
+                );
                 break;
             }
 
@@ -193,9 +228,7 @@ class dsmccParser {
                 let reserved = (data[2] >> 1) & 0b1111111;
 
                 if (root_certificate_type == 0) {
-
                 }
-
             }
 
             default:
@@ -203,9 +236,19 @@ class dsmccParser {
         }
     }
 
-    ProcessDii(buffer: Uint8Array): number {
-        let dsmccMessageHeaderOffset = this.ProcessDsmccMessageHeader(buffer);
-        let data = new Uint8Array(buffer, dsmccMessageHeaderOffset);
+    ProcessDii(
+        data: Uint8Array,
+        serviceId: number,
+        componentTag: number
+    ): number {
+        let ProcessDsmccMessageHeaderReturnValues =
+            this.ProcessDsmccMessageHeader(data);
+        let dsmccMessageHeaderOffset = ProcessDsmccMessageHeaderReturnValues[0];
+        let transaction_id = ProcessDsmccMessageHeaderReturnValues[1];
+        let transaction_no = ProcessDsmccMessageHeaderReturnValues[2];
+        let adaptationLength = ProcessDsmccMessageHeaderReturnValues[3];
+        let messageLength = ProcessDsmccMessageHeaderReturnValues[4];
+        data = new Uint8Array(data, dsmccMessageHeaderOffset);
         let downloadId =
             (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
         let data_event_id = (downloadId >> 28) & 0b1111;
@@ -216,33 +259,36 @@ class dsmccParser {
             (data[8] << 24) | (data[9] << 16) | (data[10] << 8) | data[11];
         let tCDownloadScenario =
             (data[12] << 24) | (data[13] << 16) | (data[14] << 8) | data[15];
-        let descriptorCount = (data[16] >> 4) & 0b1111; // empty compatibilityDescriptor()
-        let numberOfModules =
-            ((data[16] & 0b1111) << 12) |
-            (data[17] << 4) |
-            ((data[18] >> 4) & 0b1111);
 
+        let descType = data[16];
+        let descLen = data[17]; // empty compatibilityDescriptor()
+        let numberOfModules = (data[18] << 8) | data[19];
+
+        let dlData = new DlData();
+        dlData.ServiceId = serviceId;
+        dlData.DownloadId = downloadId;
+        dlData.BlockSize = blockSize;
+        dlData.WindowSize = windowSize;
+        dlData.AckPriod = ackPeriod;
+        dlData.TcDownloadWindow = tCDownloadWindow;
+        dlData.TcDownloadScenario = tCDownloadScenario;
+        dlData.NumberOfModules = numberOfModules;
+        dlData.ComponentTag = componentTag;
         for (let i = 0; i < numberOfModules; i++) {
-            var moduleObj = {
-                moduleId:
-                    ((data[18 + i] & 0b1111) << 12) |
-                    (data[19 + i] << 4) |
-                    ((data[20 + i] >> 4) & 0b1111),
+            var moduleObj: any = {
+                moduleId: (data[20 + descLen + 0] << 8) | data[20 + descLen + 1],
                 moduleSize:
-                    ((data[20 + i] & 0b1111) << 28) |
-                    (data[21 + i] << 20) |
-                    (data[22 + i] << 12) |
-                    (data[23 + i] << 4) |
-                    ((data[24 + i] >> 4) & 0b1111),
-                moduleVersion:
-                    ((data[24 + i] & 0b1111) << 4) | ((data[25 + i] >> 4) & 0b1111),
-                moduleInfoLength:
-                    ((data[25 + i] & 0b1111) << 4) | ((data[26 + i] >> 4) & 0b1111),
+                    (data[20 + descLen + 2] << 24) |
+                    (data[20 + descLen + 3] << 16) |
+                    (data[20 + descLen + 4] << 8) |
+                    data[20 + descLen + 5],
+                moduleVersion: data[20 + descLen + 6],
+                moduleInfoLength: data[20 + descLen + 7],
             };
+
             var moduleInfoByte = new Uint8Array(moduleObj.moduleInfoLength);
             for (let j = 0; j < moduleObj.moduleInfoLength; j++) {
-                moduleInfoByte[j] =
-                    ((data[26 + j] & 0b1111) << 4) | ((data[27 + j] >> 4) & 0b1111);
+                moduleInfoByte[j] = data[28 + j];
             }
 
             this.moduleMap.set(moduleObj.moduleId, moduleObj);
@@ -269,12 +315,13 @@ class dsmccParser {
         let protocolDiscriminator = data[0];
         let dsmccType = data[1];
         let messageId = (data[2] << 8) | data[3];
-        let downloadId = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+        let downloadId =
+            (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
         let reserved = data[8];
         let adaptationLength = data[9];
         let messageLength = (data[10] << 8) | data[11];
         if (adaptationLength > 0) {
-            this.ProcessDsmccAdaptationHeader(data.subarray(12), adaptationLength)
+            this.ProcessDsmccAdaptationHeader(data.subarray(12), adaptationLength);
         }
 
         return 12 + adaptationLength;
@@ -284,7 +331,8 @@ class dsmccParser {
         let offset = this.ProcessDsmccDownloadDataHeader(data);
         data = new Uint8Array(data, offset);
         let moduleId = (data[0] << 8) | data[1];
-        let moduleVersion
+        let moduleVersion = data[2];
+        let reserved = data[3];
     }
 
     ProcessDsmccSection(data: Uint8Array): void {
@@ -302,7 +350,7 @@ class dsmccParser {
 
         switch (table_id) {
             case 0x3b:
-                this.ProcessDii(data.subarray(8));
+                // this.ProcessDii(data.subarray(8));
                 break;
             case 0x3c:
                 break;
