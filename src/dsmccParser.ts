@@ -87,35 +87,45 @@ class dsmccParser {
         let descriptor_tag = data[0];
         let descriptor_length = data[1];
 
+        var resObj:any;
+        resObj.offset = descriptor_length;
+
         switch (descriptor_tag) {
             case ModuleInfoDescriptor.Type: {
                 let text_char = new Uint8Array(data, 2, descriptor_length);
+                resObj.Type.text_char = text_char;
 
                 break;
             }
             case ModuleInfoDescriptor.Info: {
                 let ISO_639_language_code = (data[2] << 16) | (data[3] << 8) | data[4];
                 let text_char = new Uint8Array(data, 4, descriptor_length);
+                resObj.Info.ISO_639_language_code = ISO_639_language_code;
+                resObj.Info.text_char = text_char;
                 break;
             }
             case ModuleInfoDescriptor.Name: {
                 let text_char = new Uint8Array(data, 2, descriptor_length);
-
+                resObj.Name.text_char = text_char;
                 break;
             }
             case ModuleInfoDescriptor.Module_link: {
                 let position = data[2];
                 let moduleId = (data[3] << 8) | data[4];
+                resObj.Module_link.position = position;
+                resObj.Module_link.moduleId = moduleId;
                 break;
             }
             case ModuleInfoDescriptor.CRC32: {
                 let CRC_32 =
                     (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
+                resObj.CRC32.CRC_32 = CRC_32;
                 break;
             }
             case ModuleInfoDescriptor.DownloadTime: {
                 let est_download_time =
                     (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
+                resObj.
                 break;
             }
             case ModuleInfoDescriptor.Expire: {
@@ -287,8 +297,10 @@ class dsmccParser {
             };
 
             var moduleInfoByte = new Uint8Array(moduleObj.moduleInfoLength);
-            for (let j = 0; j < moduleObj.moduleInfoLength; j++) {
-                moduleInfoByte[j] = data[28 + j];
+            for (let j = 0; j < moduleObj.moduleInfoLength;) {
+                // moduleInfoByte[j] = data[28 + j];
+                this.ProcessDescriptor(new Uint8Array(data, 28 + j))
+
             }
 
             this.moduleMap.set(moduleObj.moduleId, moduleObj);
