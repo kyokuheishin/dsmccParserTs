@@ -83,7 +83,7 @@ class dsmccParser {
         ];
     }
 
-    ProcessDescriptor(data: Uint8Array) {
+    ProcessDescriptor(data: Uint8Array, moduleInfoLength: number) {
         let descriptor_tag = data[0];
         let descriptor_length = data[1];
 
@@ -93,20 +93,21 @@ class dsmccParser {
         switch (descriptor_tag) {
             case ModuleInfoDescriptor.Type: {
                 let text_char = new Uint8Array(data, 2, descriptor_length);
-                resObj.Type.text_char = text_char;
+                resObj.Type = new TextDecoder().decode(text_char);
 
                 break;
             }
             case ModuleInfoDescriptor.Info: {
                 let ISO_639_language_code = (data[2] << 16) | (data[3] << 8) | data[4];
-                let text_char = new Uint8Array(data, 4, descriptor_length);
+                let text_char = new Uint8Array(data, 5, descriptor_length - 1);
                 resObj.Info.ISO_639_language_code = ISO_639_language_code;
                 resObj.Info.text_char = text_char;
                 break;
             }
             case ModuleInfoDescriptor.Name: {
                 let text_char = new Uint8Array(data, 2, descriptor_length);
-                resObj.Name.text_char = text_char;
+
+                resObj.Name = new TextDecoder().decode(text_char);
                 break;
             }
             case ModuleInfoDescriptor.Module_link: {
@@ -119,7 +120,7 @@ class dsmccParser {
             case ModuleInfoDescriptor.CRC32: {
                 let CRC_32 =
                     (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
-                resObj.CRC32.CRC_32 = CRC_32;
+                resObj.CRC32 = CRC_32;
                 break;
             }
             case ModuleInfoDescriptor.DownloadTime: {
@@ -198,7 +199,7 @@ class dsmccParser {
                 let original_size =
                     (data[3] << 24) | (data[4] << 16) | (data[5] << 18) | data[6];
                 resObj.CompressionType.compression_type = compression_type;
-                resObj.CompressionType.compression_type = original_size;
+                resObj.CompressionType.original_size = original_size;
                 break;
             }
 
@@ -224,13 +225,13 @@ class dsmccParser {
                 let reserved = (data[2] >> 1) & 0b1111111;
                 let store_root_path = new Uint8Array(data, 3, descriptor_length);
                 resObj.StoreRoot.update_type = update_type;
-                resObj.StoreRoot.store_root_path = store_root_path;
+                resObj.StoreRoot.store_root_path = new TextDecoder().decode(store_root_path);
                 break;
             }
 
             case ModuleInfoDescriptor.SubDirectory: {
                 let subdirectory_path = new Uint8Array(data, 3, descriptor_length);
-                resObj.SubDirectory.subdirectory_path = subdirectory_path;
+                resObj.SubDirectory.subdirectory_path = new TextDecoder().decode(subdirectory_path);
                 break;
             }
 
@@ -238,6 +239,8 @@ class dsmccParser {
                 let ISO_639_language_code =
                     (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
                 resObj.Title.ISO_639_language_code = ISO_639_language_code;
+                let text_char = new Uint8Array(data, 6, descriptor_length - 1);
+                resObj.Title.text = new TextDecoder().decode(text_char);
                 break;
             }
 
@@ -259,13 +262,13 @@ class dsmccParser {
                 let reserved = (data[2] >> 1) & 0b1111111;
                 resObj.RootCert.root_certificate_type = root_certificate_type;
                 let certArray: Array<any> = [];
-                let n = (descriptor_length - 8) / 64
+                let n = (descriptor_length - 1)
                 if (root_certificate_type == 0) {
 
                     for (let i = 0; i < n; i++) {
                         let certElement: any;
-                        let root_certificate_id = data[3] << 24 | data[4] << 16 | data[5] << 8 | data[7];
-                        let root_certificate_version = data[8] << 24 | data[9] << 16 | data[10] << 8 | data[11];
+                        let root_certificate_id = data[3 + i] << 24 | data[4 + i] << 16 | data[5 + i] << 8 | data[6 + i];
+                        let root_certificate_version = data[7 + i] << 24 | data[8 + i] << 16 | data[9 + i] << 8 | data[10 + i];
                         certElement.root_certificate_id = root_certificate_id;
                         certElement.root_certificate_version = root_certificate_version;
                         certArray.push(certElement);
@@ -285,7 +288,8 @@ class dsmccParser {
     ProcessDii(
         data: Uint8Array,
         serviceId: number,
-        componentTag: number
+        componentTag: number,
+        pid: number,
     ): number {
         let ProcessDsmccMessageHeaderReturnValues =
             this.ProcessDsmccMessageHeader(data);
@@ -335,12 +339,16 @@ class dsmccParser {
             var moduleInfoByte = new Uint8Array(moduleObj.moduleInfoLength);
             for (let j = 0; j < moduleObj.moduleInfoLength;) {
                 // moduleInfoByte[j] = data[28 + j];
-                let res = this.ProcessDescriptor(new Uint8Array(data, 28 + j));
+                let res = this.ProcessDescriptor(new Uint8Array(data, 28 + j), moduleObj.moduleInfoLength);
                 j += res[0];
+                for (const key in res[1]) {
+                    moduleObj[key] = res[1][key];
+                }
             }
-
-            this.moduleMap.set(moduleObj.moduleId, moduleObj);
-            this.moduleByteMap.set(moduleObj.moduleId, moduleInfoByte);
+            dlData.Module[i] = moduleObj;
+            i += (moduleObj.moduleInfoLength + 8)
+            // this.moduleMap.set(moduleObj.moduleId, moduleObj);
+            // this.moduleByteMap.set(moduleObj.moduleId, moduleInfoByte);
         }
 
         let privateDataLength =
