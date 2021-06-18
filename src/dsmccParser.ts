@@ -83,12 +83,12 @@ class dsmccParser {
         ];
     }
 
-    ProcessDescriptor(data: Uint8Array): void {
+    ProcessDescriptor(data: Uint8Array) {
         let descriptor_tag = data[0];
         let descriptor_length = data[1];
 
-        var resObj:any;
-        resObj.offset = descriptor_length;
+        var resObj: any;
+        let offset = descriptor_length + 2;
 
         switch (descriptor_tag) {
             case ModuleInfoDescriptor.Type: {
@@ -125,7 +125,7 @@ class dsmccParser {
             case ModuleInfoDescriptor.DownloadTime: {
                 let est_download_time =
                     (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
-                resObj.
+                resObj.DownloadTime.est_download_time = est_download_time;
                 break;
             }
             case ModuleInfoDescriptor.Expire: {
@@ -139,11 +139,14 @@ class dsmccParser {
                             (data[5] << 16) |
                             (data[6] << 8) |
                             data[7];
+                        resObj.Expire.MJD_JST_time = MJD_JST_time;
                         break;
                     case 0x04:
                         let reserved_future_use = data[3];
                         let passed_seconds =
                             (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+                        resObj.reserved_future_use = reserved_future_use;
+                        resObj.passed_seconds = passed_seconds;
                     default:
                         break;
                 }
@@ -159,6 +162,7 @@ class dsmccParser {
                             (data[5] << 16) |
                             (data[6] << 8) |
                             data[7];
+                        resObj.ActivationTime.MJD_JST_time = MJD_JST_time;
                         break;
                     case 0x02: {
                         let reserved_future_use = (data[3] >> 1) & 0b1111111;
@@ -168,6 +172,8 @@ class dsmccParser {
                             (data[5] << 16) |
                             (data[6] << 8) |
                             data[7];
+                        resObj.ActivationTime.reserved_future_use = reserved_future_use;
+                        resObj.ActivationTime.NPT_time = NPT_time;
                         break;
                     }
                     case 0x03:
@@ -178,6 +184,8 @@ class dsmccParser {
                             (data[5] << 16) |
                             (data[6] << 8) |
                             data[7];
+                        resObj.ActivationTime.reserved_future_use = reserved_future_use;
+                        resObj.ActivationTIme.eventRelativeTime = eventRelativeTime;
                         break;
 
                     default:
@@ -189,11 +197,14 @@ class dsmccParser {
                 let compression_type = data[2];
                 let original_size =
                     (data[3] << 24) | (data[4] << 16) | (data[5] << 18) | data[6];
+                resObj.CompressionType.compression_type = compression_type;
+                resObj.CompressionType.compression_type = original_size;
                 break;
             }
 
             case ModuleInfoDescriptor.Control: {
                 let control_data_byte = new Uint8Array(data, 2, descriptor_length);
+                resObj.Control.control_data_byte = control_data_byte;
                 break;
             }
 
@@ -202,6 +213,9 @@ class dsmccParser {
                 let scope_identifier =
                     (data[3] << 24) | (data[4] << 16) | (data[5] << 18) | data[6];
                 let private_byte = new Uint8Array(data, 7, descriptor_length);
+                resObj.ProviderPrivate.private_scope_type = private_scope_type;
+                resObj.ProviderPrivate.scope_identifier = scope_identifier;
+                resObj.ProviderPrivate.private_byte = private_byte;
                 break;
             }
 
@@ -209,17 +223,21 @@ class dsmccParser {
                 let update_type = data[2] & 0b1;
                 let reserved = (data[2] >> 1) & 0b1111111;
                 let store_root_path = new Uint8Array(data, 3, descriptor_length);
+                resObj.StoreRoot.update_type = update_type;
+                resObj.StoreRoot.store_root_path = store_root_path;
                 break;
             }
 
             case ModuleInfoDescriptor.SubDirectory: {
                 let subdirectory_path = new Uint8Array(data, 3, descriptor_length);
+                resObj.SubDirectory.subdirectory_path = subdirectory_path;
                 break;
             }
 
             case ModuleInfoDescriptor.Title: {
                 let ISO_639_language_code =
                     (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
+                resObj.Title.ISO_639_language_code = ISO_639_language_code;
                 break;
             }
 
@@ -230,20 +248,38 @@ class dsmccParser {
                     4,
                     descriptor_length
                 );
+                resObj.DataEncoding.data_compoent_id = data_compoent_id;
+                resObj.DataEncoding.additional_data_encoding_info =
+                    additional_data_encoding_info;
                 break;
             }
 
             case ModuleInfoDescriptor.RootCert: {
                 let root_certificate_type = data[2] & 0b1;
                 let reserved = (data[2] >> 1) & 0b1111111;
-
+                resObj.RootCert.root_certificate_type = root_certificate_type;
+                let certArray: Array<any> = [];
+                let n = (descriptor_length - 8) / 64
                 if (root_certificate_type == 0) {
+
+                    for (let i = 0; i < n; i++) {
+                        let certElement: any;
+                        let root_certificate_id = data[3] << 24 | data[4] << 16 | data[5] << 8 | data[7];
+                        let root_certificate_version = data[8] << 24 | data[9] << 16 | data[10] << 8 | data[11];
+                        certElement.root_certificate_id = root_certificate_id;
+                        certElement.root_certificate_version = root_certificate_version;
+                        certArray.push(certElement);
+                    }
+                    resObj.certArray = certArray;
+
+
                 }
             }
 
             default:
                 break;
         }
+        return [offset, resObj];
     }
 
     ProcessDii(
@@ -299,8 +335,8 @@ class dsmccParser {
             var moduleInfoByte = new Uint8Array(moduleObj.moduleInfoLength);
             for (let j = 0; j < moduleObj.moduleInfoLength;) {
                 // moduleInfoByte[j] = data[28 + j];
-                this.ProcessDescriptor(new Uint8Array(data, 28 + j))
-
+                let res = this.ProcessDescriptor(new Uint8Array(data, 28 + j));
+                j += res[0];
             }
 
             this.moduleMap.set(moduleObj.moduleId, moduleObj);
