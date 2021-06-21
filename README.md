@@ -9,6 +9,7 @@ Yet another library to parse data broadcasting of digital broadcasting of Japan.
 - [ ] DII Parser
 - [ ] DDB Parser
 - [ ] Descriptor Parser
+- [ ] Extract Files
 
 ## Standards for reference
 
