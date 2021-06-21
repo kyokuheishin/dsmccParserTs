@@ -213,10 +213,50 @@ class dsmccParser {
                 let private_scope_type = data[2];
                 let scope_identifier =
                     (data[3] << 24) | (data[4] << 16) | (data[5] << 18) | data[6];
-                let private_byte = new Uint8Array(data, 7, descriptor_length);
-                resObj.ProviderPrivate.private_scope_type = private_scope_type;
-                resObj.ProviderPrivate.scope_identifier = scope_identifier;
-                resObj.ProviderPrivate.private_byte = private_byte;
+                let n = descriptor_length - 5;
+
+                switch (private_scope_type) {
+                    case 0x01: {
+                        let network_id = (data[7] << 8) | data[8];
+                        let padding = (data[9] << 8) | data[10];
+                        resObj.ProviderPrivate.network_id = network_id;
+                        break;
+                    }
+                    case 0x02: {
+                        let network_id = (data[7] << 8) | data[8];
+                        let service_id = (data[9] << 8) | data[10];
+                        resObj.ProviderPrivate.network_id = network_id;
+                        resObj.service_id = service_id;
+                        break;
+                    }
+                    case 0x03: {
+                        let network_id = (data[7] << 8) | data[8];
+                        let broadcaster_id = data[9];
+                        resObj.ProviderPrivate.network_id = network_id;
+                        resObj.ProviderPrivate.broadcaster_id = broadcaster_id;
+                        break;
+                    }
+                    case 0x04: {
+                        let bouquet_id = (data[7] << 8) | data[8];
+                        resObj.ProviderPrivate.bouquet_id = bouquet_id;
+                        break;
+                    }
+                    case 0x05: {
+                        let information_provider_id = (data[7] << 8) | data[8];
+                        resObj.ProviderPrivate.information_provider_id = information_provider_id;
+
+                        break;
+                    }
+                    case 0x06: {
+                        let CA_system_id = (data[7] << 8) | data[8];
+                        resObj.ProviderPrivate.CA_system_id = CA_system_id;
+                        break;
+                    }
+
+                    default:
+                        break;
+                }
+
                 break;
             }
 
