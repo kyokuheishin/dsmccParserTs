@@ -1,5 +1,7 @@
-import { Module } from 'module';
-import { DlData } from './downloadData';
+// noinspection ShiftOutOfRangeJS,PointlessArithmeticExpressionJS
+
+import {Module} from 'module';
+import {DlData} from './downloadData';
 
 enum ModuleInfoDescriptor {
     Type = 0x01,
@@ -8,7 +10,7 @@ enum ModuleInfoDescriptor {
     Module_link,
     CRC32,
     DownloadTime = 0x07,
-    CashPrioriy = 0x71,
+    CashPriority = 0x71,
     Expire = 0xc0,
     ActivationTime,
     CompressionType,
@@ -42,6 +44,7 @@ class dsmccParser {
     data: Uint8Array;
     moduleMap = new Map();
     moduleByteMap = new Map();
+    downloadDataMap = new Map();
     privateData = new Uint8Array();
 
     constructor(data: Uint8Array) {
@@ -148,6 +151,7 @@ class dsmccParser {
                             (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
                         resObj.reserved_future_use = reserved_future_use;
                         resObj.passed_seconds = passed_seconds;
+                        break;
                     default:
                         break;
                 }
@@ -192,6 +196,7 @@ class dsmccParser {
                     default:
                         break;
                 }
+                break;
             }
 
             case ModuleInfoDescriptor.CompressionType: {
@@ -285,13 +290,13 @@ class dsmccParser {
             }
 
             case ModuleInfoDescriptor.DataEncoding: {
-                let data_compoent_id = (data[2] << 8) | data[3];
+                let data_component_id = (data[2] << 8) | data[3];
                 let additional_data_encoding_info = new Uint8Array(
                     data,
                     4,
                     descriptor_length
                 );
-                resObj.DataEncoding.data_compoent_id = data_compoent_id;
+                resObj.DataEncoding.data_compoent_id = data_component_id;
                 resObj.DataEncoding.additional_data_encoding_info =
                     additional_data_encoding_info;
                 break;
@@ -317,6 +322,7 @@ class dsmccParser {
 
 
                 }
+                break;
             }
 
             default:
@@ -352,8 +358,8 @@ class dsmccParser {
 
         let descType = data[16];
         let descLen = data[17]; // empty compatibilityDescriptor()
-        let numberOfModules = (data[18] << 8) | data[19];
-
+        let numberOfModules = (data[18 + descLen] << 8) | data[19 + descLen];
+        let newBasePosition = 20 + descLen;
         let dlData = new DlData();
         dlData.ServiceId = serviceId;
         dlData.DownloadId = downloadId;
@@ -366,43 +372,84 @@ class dsmccParser {
         dlData.ComponentTag = componentTag;
         for (let i = 0; i < numberOfModules; i++) {
             var moduleObj: any = {
-                moduleId: (data[20 + descLen + 0] << 8) | data[20 + descLen + 1],
+                moduleId: (data[newBasePosition + 0] << 8) | data[newBasePosition + 1],
                 moduleSize:
-                    (data[20 + descLen + 2] << 24) |
-                    (data[20 + descLen + 3] << 16) |
-                    (data[20 + descLen + 4] << 8) |
-                    data[20 + descLen + 5],
-                moduleVersion: data[20 + descLen + 6],
-                moduleInfoLength: data[20 + descLen + 7],
+                    (data[newBasePosition + 2] << 24) |
+                    (data[newBasePosition + 3] << 16) |
+                    (data[newBasePosition + 4] << 8) |
+                    data[newBasePosition + 5],
+                moduleVersion: data[newBasePosition + 6],
+                moduleInfoLength: data[newBasePosition + 7],
             };
 
             var moduleInfoByte = new Uint8Array(moduleObj.moduleInfoLength);
             for (let j = 0; j < moduleObj.moduleInfoLength;) {
                 // moduleInfoByte[j] = data[28 + j];
-                let res = this.ProcessDescriptor(new Uint8Array(data, 28 + j), moduleObj.moduleInfoLength);
+                let res = this.ProcessDescriptor(new Uint8Array(data, newBasePosition + 8 + j), moduleObj.moduleInfoLength);
                 j += res[0];
                 for (const key in res[1]) {
                     moduleObj[key] = res[1][key];
                 }
             }
+
             dlData.Module[i] = moduleObj;
-            i += (moduleObj.moduleInfoLength + 8)
+            newBasePosition += (moduleObj.moduleInfoLength + 8)
+
+
             // this.moduleMap.set(moduleObj.moduleId, moduleObj);
             // this.moduleByteMap.set(moduleObj.moduleId, moduleInfoByte);
         }
 
         let privateDataLength =
-            ((data[27 + numberOfModules] & 0b1111) << 12) |
-            (data[28 + numberOfModules] << 4) |
-            ((data[29 + numberOfModules] >> 4) & 0b1111);
+            (data[newBasePosition + 0] << 8) | data[newBasePosition + 1];
+        let updatedFlag = false;
+        let moduleUpdate = new Array(128);
 
-        let privateData = new Uint8Array(privateDataLength);
+        if (this.downloadDataMap.has(pid)) {
+            let oldData = this.downloadDataMap.get(pid);
+            for (let iNew = 0; iNew < dlData.NumberOfModules; iNew++) {
+                moduleUpdate[iNew] = true;
+            }
 
-        for (let i = 0; i < privateDataLength; i++) {
-            privateData[i] =
-                (data[29 + numberOfModules + i] & 0b1111) |
-                ((data[30 + numberOfModules + i] >> 4) & 0b1111);
+            for (let iOld = 0; iOld < oldData.NumberOfModules; iOld++) {
+                let findFlag = false;
+                let freeFlag = true;
+
+                for (let iNew = 0; iNew < dlData.NumberOfModules && !findFlag; iNew++) {
+                    if (oldData.Module[iOld].id == dlData.Module[iNew].id) {
+                        if (oldData.Module[iOld].version != dlData.Module[iNew].version) {
+                            updatedFlag = true;
+                        } else {
+                            dlData.Module[iNew] = oldData.Module[iOld];
+                            moduleUpdate[iNew] = false;
+                            freeFlag = false;
+                        }
+                        findFlag = true;
+                    }
+                }
+
+                if (!findFlag) {
+                    //TODO:Complete delete module files
+                }
+
+
+            }
+            this.downloadDataMap.set(pid, dlData);
+        } else {
+            this.downloadDataMap.set(pid, dlData);
+            updatedFlag = true;
+            for (let i = 0; i < dlData.NumberOfModules; i++) {
+                moduleUpdate[i] = true;
+            }
         }
+
+        // let privateData = new Uint8Array(privateDataLength);
+        //
+        // for (let i = 0; i < privateDataLength; i++) {
+        //     privateData[i] =
+        //         (data[29 + numberOfModules + i] & 0b1111) |
+        //         ((data[30 + numberOfModules + i] >> 4) & 0b1111);
+        // }
 
         return 30 + numberOfModules + privateDataLength; // offset
     }
