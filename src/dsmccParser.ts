@@ -396,7 +396,7 @@ class dsmccParser {
       moduleObj.status.completeFlag = true;
       moduleObj.status.block = new Array<boolean>(1024);
       moduleObj.status.download = new Uint8Array();
-
+      moduleObj.blockNumber = ((moduleObj.moduleSize - 1) / blockSize) + 1;
 
       var moduleInfoByte = new Uint8Array(moduleObj.moduleInfoLength);
       for (let j = 0; j < moduleObj.moduleInfoLength;) {
@@ -521,6 +521,24 @@ class dsmccParser {
     if (moduleIndex == -1) {
       return;
     }
+
+    newBasePosition += 6;
+
+    if (blockNumber >= 1023) {
+      return;
+    }
+
+    dlData.Module[moduleIndex].status.block[blockNumber] = true;
+    let completeFlag = true;
+
+    for (let i = 0; i < dlData.Module[moduleIndex].blockNumber; i++) {
+      if (!dlData.Module[moduleIndex].status.block[i]) {
+        completeFlag = false;
+        break;
+      }
+
+    }
+
   }
 
   ProcessDsmccSection(data: Uint8Array): void {
