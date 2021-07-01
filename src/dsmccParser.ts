@@ -486,6 +486,14 @@ class dsmccParser {
     return [offset, downloadId, adaptationLength, messageLength];
   }
 
+  ProcessContent(serviceId: number, componentTag: number, moduleId: number, version: number, data: Uint8Array, contentType: string, len: number) {
+
+    if (!contentType.includes("multipart/mixed")) {
+      //It may be Single Part
+
+    }
+  }
+
   ProcessDDB(data: Uint8Array, pid: number): void {
     let newBasePosition = 0;
     let res = this.ProcessDsmccDownloadDataHeader(data);
@@ -544,7 +552,9 @@ class dsmccParser {
     if (completeFlag) {
       dlData.Module[moduleIndex].status.completeFlag = true;
       if ("CompressionType" in dlData.Module[moduleIndex]) {
-
+        let compressedData = new RawInflate(downloadData);
+        let decompressedData = compressedData.decompress();
+        //TODO: Implement parse content 
       }
     }
 
