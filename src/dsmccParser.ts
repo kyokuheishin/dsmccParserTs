@@ -2,7 +2,7 @@
 
 import { Module } from 'module';
 import { DlData } from './downloadData';
-
+import { RawDeflate, RawInflate } from 'zlibt2/raw';
 enum ModuleInfoDescriptor {
   Type = 0x01,
   Name,
@@ -528,6 +528,8 @@ class dsmccParser {
       return;
     }
 
+    let downloadData = new Uint8Array(data, newBasePosition)
+
     dlData.Module[moduleIndex].status.block[blockNumber] = true;
     let completeFlag = true;
 
@@ -539,9 +541,16 @@ class dsmccParser {
 
     }
 
+    if (completeFlag) {
+      dlData.Module[moduleIndex].status.completeFlag = true;
+      if ("CompressionType" in dlData.Module[moduleIndex]) {
+
+      }
+    }
+
   }
 
-  ProcessDsmccSection(data: Uint8Array): void {
+  ProcessDsmccSection(data: Uint8Array, pid: number): void {
     let table_id = data[0];
     let section_syntax_indicator = (data[1] >> 7) & 0b1;
     let private_indicator = (data[1] >> 6) & 0b1;
@@ -559,6 +568,7 @@ class dsmccParser {
         // this.ProcessDii(data.subarray(8));
         break;
       case 0x3c:
+        this.ProcessDDB(new Uint8Array(data, 8, dsmcc_section_length - 9), pid);
         break;
       case 0x3e:
         break;
