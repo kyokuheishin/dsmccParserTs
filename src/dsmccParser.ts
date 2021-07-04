@@ -3,6 +3,7 @@
 import { Module } from 'module';
 import { DlData } from './downloadData';
 import { RawDeflate, RawInflate } from 'zlibt2/raw';
+
 enum ModuleInfoDescriptor {
   Type = 0x01,
   Name,
