@@ -18,6 +18,7 @@
     "emailjs-mime-parser": "^2.0.7",
     "mailparser-mit": "^1.0.0",
     "memfs": "^3.2.2",
+    "parse-multipart-mixed-mail-pmb": "git+https://github.com/mk-pmb/parse-multipart-mixed-mail-pmb-js.git",
     "zlibt2": "^0.5.1"
   }
 }
