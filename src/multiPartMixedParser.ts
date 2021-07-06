@@ -65,3 +65,5 @@ const mimeParser = (raw: Uint8Array) => {
 
 
 };
+
+export { mimeParser };
