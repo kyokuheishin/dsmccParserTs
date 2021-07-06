@@ -61,5 +61,7 @@ const mimeParser = (raw: Uint8Array) => {
 
     }
 
+    return res;
+
 
 };
