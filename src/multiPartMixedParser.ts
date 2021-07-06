@@ -1,4 +1,3 @@
-import { ESRCH } from "constants";
 
 class ModuleResource {
     ContentType: String = "";
