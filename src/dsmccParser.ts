@@ -3,6 +3,8 @@
 import { Module } from 'module';
 import { DlData } from './downloadData';
 import { RawDeflate, RawInflate } from 'zlibt2/raw';
+import { mimeParser } from './multiPartMixedParser';
+import { fs } from 'memfs';
 
 
 enum ModuleInfoDescriptor {
@@ -48,6 +50,7 @@ class dsmccParser {
   moduleByteMap = new Map();
   downloadDataMap = new Map();
   privateData = new Uint8Array();
+
 
   constructor(data: Uint8Array) {
     this.data = data;
@@ -492,6 +495,8 @@ class dsmccParser {
 
     if (!contentType.includes("multipart/mixed")) {
       //It may be Single Part
+      let resources = mimeParser(data);
+
 
     }
   }
