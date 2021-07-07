@@ -50,10 +50,18 @@ class dsmccParser {
   moduleByteMap = new Map();
   downloadDataMap = new Map();
   privateData = new Uint8Array();
+  networkId: number;
+  transportStreamId: number;
+  serviceId: number;
+  componentTag: number;
 
 
-  constructor(data: Uint8Array) {
+  constructor(data: Uint8Array, networkId: number, transportStreamId: number, serviceId: number, componentTag: number) {
     this.data = data;
+    this.networkId = networkId;
+    this.transportStreamId = transportStreamId;
+    this.serviceId = serviceId;
+    this.componentTag = componentTag;
   }
 
   ProcessDsmccAdaptationHeader(
@@ -348,8 +356,8 @@ class dsmccParser {
 
   ProcessDii(
     data: Uint8Array,
-    serviceId: number,
-    componentTag: number,
+
+
     pid: number
   ): number {
     let ProcessDsmccMessageHeaderReturnValues =
@@ -376,7 +384,7 @@ class dsmccParser {
     let numberOfModules = (data[18 + descLen] << 8) | data[19 + descLen];
     let newBasePosition = 20 + descLen;
     let dlData = new DlData();
-    dlData.ServiceId = serviceId;
+    dlData.ServiceId = this.serviceId;
     dlData.DownloadId = downloadId;
     dlData.BlockSize = blockSize;
     dlData.WindowSize = windowSize;
@@ -384,7 +392,7 @@ class dsmccParser {
     dlData.TcDownloadWindow = tCDownloadWindow;
     dlData.TcDownloadScenario = tCDownloadScenario;
     dlData.NumberOfModules = numberOfModules;
-    dlData.ComponentTag = componentTag;
+    dlData.ComponentTag = this.componentTag;
     for (let i = 0; i < numberOfModules; i++) {
       var moduleObj: any = {
         moduleId: (data[newBasePosition + 0] << 8) | data[newBasePosition + 1],

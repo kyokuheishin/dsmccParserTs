@@ -45,7 +45,7 @@ const mimeParser = (raw: Uint8Array) => {
         }
 
         if (element.includes("Content-Location")) {
-            moduleResource.ContentLocation = element.split(":")[1];
+            moduleResource.ContentLocation = element.split(":")[1].toLowerCase();
             continue;
         }
 
